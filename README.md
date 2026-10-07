@@ -97,4 +97,10 @@ data-warehouse-project/
 
 ## 🛡️ License
 
-This project is licensed under the [MIT License](LICENSE). You are free to use, modify, and share this project with proper attribution.
+This project is licensed under the [MIT License](LICENSE). 
+
+## 🙏 Acknowledgment
+
+This project was developed as a learning and portfolio project using the data, project structure, and learning materials provided by **Data With Baraa (Baraa Khatib Salkini)**. The original SQL Data Warehouse project and related resources can be found in the [Data With Baraa GitHub repository](https://github.com/DataWithBaraa/sql-data-warehouse-project) and through the [Data With Baraa YouTube channel](https://www.youtube.com/@DataWithBaraa).
+
+I have used these resources as a learning foundation and adapted the project as part of my own practice in SQL, data warehousing, ETL, data modeling, and analytics. All original materials remain attributed to Data With Baraa.
