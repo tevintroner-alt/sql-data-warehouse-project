@@ -1,0 +1,71 @@
+/* =================================================================================
+   PROJECT: Medallion Architecture Data Warehouse (MySQL Implementation)
+   DESCRIPTION: 
+       This script initializes the core database architecture for a centralized 
+       Data Warehouse using a single-database Medallion (Bronze, Silver, Gold) 
+       design pattern adapted specifically for MySQL.
+
+   ARCHITECTURE OVERVIEW:
+       Due to MySQL treating 'SCHEMA' and 'DATABASE' as identical synonyms, this 
+       implementation groups data engineering layers via an optimized table prefix 
+       strategy inside a single logical container (`DataWarehouse`).
+
+       1. BRONZE LAYER (Prefix: `bronze_`): 
+          Acts as the landing zone. Ingests raw, immutable source data exactly 
+          as received, appending an automated system ingest timestamp.
+
+       2. SILVER LAYER (Prefix: `silver_`): 
+          The transformation zone. Standardizes structures, cleans data types, 
+          enforces primary key integrity, and prepares records for analysis.
+
+       3. GOLD LAYER (Prefix: `gold_`): 
+          The analytics zone. Aggregates business-ready metrics optimized for 
+          BI tools, dashboards, and executive reporting.
+
+   TARGET DATABASE SYSTEM: MySQL 5.7+ / 8.0+
+================================================================================= */
+
+
+
+-- =========================================================
+-- DATA WAREHOUSE DATABASE
+-- =========================================================
+
+-- Step 1: Create the main Data Warehouse database
+CREATE DATABASE IF NOT EXISTS DataWarehouse;
+
+-- Step 2: Switch to the Data Warehouse
+USE DataWarehouse;
+
+-- =========================================================
+-- BRONZE LAYER
+-- Raw data exactly as received from source systems
+-- =========================================================
+
+CREATE TABLE bronze_customers(
+	id INT,
+    raw_name VARCHAR(50),
+    ingest_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =========================================================
+-- SILVER LAYER
+-- Cleaned, standardized and validated data
+-- =========================================================
+
+CREATE TABLE silver_customers (
+    customer_id INT PRIMARY KEY,
+    clean_name VARCHAR(255),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- =========================================================
+-- GOLD LAYER
+-- Business-ready data for reporting and analytics
+-- =========================================================
+
+CREATE TABLE gold_customer_analytics (
+    total_customers INT,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
