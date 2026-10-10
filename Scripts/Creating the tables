@@ -1,0 +1,92 @@
+-- =================================================================================
+-- PROJECT: Medallion Architecture Data Warehouse (MySQL Implementation)
+-- DESCRIPTION: 
+--     DDL Script to initialize the exact Bronze tables from the CRM and ERP systems
+--     using a table-prefix design inside a single unified database.
+-- =================================================================================
+
+USE DataWarehouse;
+
+-- Ensure an automated timestamp column tracking is appended to every raw ingest table
+-- to follow modern Data Engineering best practices.
+
+-- Drop the old, generic test tables to clean up the environment
+DROP TABLE IF EXISTS bronze_customers;
+DROP TABLE IF EXISTS silver_customers;
+DROP TABLE IF EXISTS gold_customer_analytics;
+-- =========================================================
+-- CRM SYSTEM SOURCE TABLES
+-- =========================================================
+
+-- 1. CRM Customer Information
+DROP TABLE IF EXISTS bronze_crm_cust_info;
+CREATE TABLE bronze_crm_cust_info (
+	cst_id   INT,
+    cst_key  VARCHAR (50),
+    cst_firstname VARCHAR (50),
+    cst_lastname  VARCHAR (50),
+    cst_marital_status VARCHAR (50),
+    cst_gender VARCHAR (50),
+    cst_create_date  DATE,
+    ingest_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+-- 2. CRM Product Information
+DROP TABLE IF EXISTS bronze_crm_prd_info;
+CREATE TABLE bronze_crm_prd_info (
+	prd_id    INT,
+    prd_key   VARCHAR (50),
+    prd_name  VARCHAR (50),
+    prd_cost  INT,
+	prd_line  VARCHAR(50),
+    prd_start_dt VARCHAR(50), -- Safe string context for raw file ingestion
+    prd_end_dt   VARCHAR(50),
+    ingest_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. CRM Sales Details
+DROP TABLE IF EXISTS bronze_crm_sales_details;
+CREATE TABLE bronze_crm_sales_details (
+    sls_ord_num VARCHAR(50),
+    sls_prd_key VARCHAR(50),
+    sls_cust_id INT,
+    sls_order_dt INT,       -- Matches the numeric date keys (e.g., YYYYMMDD) in the video
+    sls_ship_dt INT,
+    sls_due_dt INT,
+    sls_sales INT,
+    sls_quantity INT,
+    sls_price INT,
+    ingest_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- =========================================================
+-- ERP SYSTEM SOURCE TABLES
+-- =========================================================
+
+-- 4. ERP Location Data
+DROP TABLE IF EXISTS bronze_erp_loc_a101;
+CREATE TABLE bronze_erp_loc_a101 (
+    cid VARCHAR(50),
+    cntry VARCHAR(50),
+    ingest_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. ERP Customer Data
+DROP TABLE IF EXISTS bronze_erp_cust_az12;
+CREATE TABLE bronze_erp_cust_az12 (
+    cid VARCHAR(50),
+    bdate VARCHAR(50), -- Kept as string to prevent CSV format upload crashes
+    gen VARCHAR(50),
+    ingest_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. ERP Product Category Data
+DROP TABLE IF EXISTS bronze_erp_px_cat_g1v2;
+CREATE TABLE bronze_erp_px_cat_g1v2 (
+    id     VARCHAR(50),
+    cat    VARCHAR(50),
+    subcat VARCHAR(50),
+    maintenance VARCHAR(50),
+    ingest_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
