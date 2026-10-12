@@ -1,0 +1,102 @@
+-- =================================================================================
+-- PROJECT: Medallion Architecture Data Warehouse (MySQL Implementation)
+-- SECTION: BRONZE LAYER - DATA INGESTION PIPELINE (BULK LOADING)
+-- DESCRIPTION:
+--     This section executes the high-performance bulk loading of raw CSV data 
+--     from localized directory storage directly into the source-specific 
+--     Bronze landing tables.
+--
+-- INGESTION STRATEGY:
+--     - Replaces SQL Server's 'BULK INSERT' with MySQL's optimized 
+--       'LOAD DATA LOCAL INFILE' protocol.
+--     - Automatically bypasses CSV headers using 'IGNORE 1 LINES'.
+--     - Employs temporary environment variables and explicit text parsing 
+--       (e.g., STR_TO_DATE) to handle volatile raw source data types without 
+--       triggering ingestion failures.
+-- =================================================================================
+
+
+-- Load CRM Customer Information (Safely ingests raw customer profiles and converts dates)
+USE DataWarehouse;
+
+TRUNCATE TABLE bronze_crm_cust_info;
+
+LOAD DATA LOCAL INFILE 'C:/Users/tevin/Desktop/sql-data-warehouse-project/sql-data-warehouse-project/datasets/source_crm/cust_info.csv'
+INTO TABLE bronze_crm_cust_info
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\r\n' 
+IGNORE 1 LINES             
+(cst_id, cst_key, cst_firstname, cst_lastname, cst_marital_status, cst_gender, @raw_date)
+SET cst_create_date = STR_TO_DATE(NULLIF(@raw_date, ''), '%Y-%m-%d');
+
+-- checking if its loaded Successfully
+SELECT * 
+FROM bronze_crm_cust_info;
+
+SELECT COUNT(*) FROM bronze_crm_cust_info AS total_rows;
+
+
+-- Load CRM Product Information (Safely ingests dates as text strings)
+LOAD DATA LOCAL INFILE 'C:/Users/tevin/Desktop/sql-data-warehouse-project/sql-data-warehouse-project/datasets/source_crm/prd_info.csv'
+INTO TABLE bronze_crm_prd_info
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\r\n' 
+IGNORE 1 LINES 
+(prd_id, prd_key, prd_name, prd_cost, prd_line, prd_start_dt, prd_end_dt);
+
+SELECT * 
+FROM bronze_crm_prd_info;
+
+
+-- Load CRM Sales Details (Ingests transactional sales rows and numeric date keys)
+LOAD DATA LOCAL INFILE 'C:/Users/tevin/Desktop/sql-data-warehouse-project/sql-data-warehouse-project/datasets/source_crm/sales_details.csv'
+INTO TABLE bronze_crm_sales_details
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\r\n' 
+IGNORE 1 LINES 
+(sls_ord_num, sls_prd_key, sls_cust_id, sls_order_dt, sls_ship_dt, sls_due_dt, sls_sales, sls_quantity, sls_price);
+
+SELECT * 
+FROM bronze_crm_sales_details;
+
+-- Load ERP Customer Data (Safely ingests raw customer profiles as text strings)
+LOAD DATA LOCAL INFILE 'C:/Users/tevin/Desktop/sql-data-warehouse-project/sql-data-warehouse-project/datasets/source_erp/CUST_AZ12.csv'
+INTO TABLE bronze_erp_cust_az12
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\r\n' 
+IGNORE 1 LINES
+(CID, BDATE, GEN);
+
+SELECT * 
+FROM bronze_erp_cust_az12;
+
+
+-- Load ERP Location Data (Ingests raw customer location IDs and country codes)
+LOAD DATA LOCAL INFILE 'C:/Users/tevin/Desktop/sql-data-warehouse-project/sql-data-warehouse-project/datasets/source_erp/LOC_A101.csv'
+INTO TABLE bronze_erp_loc_a101
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\r\n' 
+IGNORE 1 LINES
+(CID, CNTRY);
+
+SELECT * 
+FROM bronze_erp_loc_a101;
+
+-- Load ERP Product Category Data (Ingests product keys, categories, and maintenance text)
+LOAD DATA LOCAL INFILE 'C:/Users/tevin/Desktop/sql-data-warehouse-project/sql-data-warehouse-project/datasets/source_erp/PX_CAT_G1V2.csv'
+INTO TABLE bronze_erp_px_cat_g1v2
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\r\n' 
+IGNORE 1 LINES
+(ID, CAT, SUBCAT, MAINTENANCE);
+
+SELECT * 
+FROM bronze_erp_px_cat_g1v2;
+
+SELECT COUNT(*) FROM bronze_erp_px_cat_g1v2;
