@@ -50,5 +50,6 @@ FROM (
         ROW_NUMBER() OVER (PARTITION BY cst_id ORDER BY cst_create_date DESC) AS flag_last
     FROM bronze_crm_cust_info
     WHERE cst_id IS NOT NULL
+      AND cst_id > 0 -- <--- THIS LINE BLOCKS 0 AND INVALID IDs
 ) t
 WHERE flag_last = 1;
