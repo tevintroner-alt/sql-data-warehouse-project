@@ -1,32 +1,49 @@
 -- =================================================================================
 -- PROJECT: Medallion Architecture Data Warehouse (MySQL Implementation)
--- SECTION: SILVER LAYER - MASTER ORCHESTRATION STORED PROCEDURE
+-- SECTION: SILVER LAYER - MASTER ORCHESTRATION STORED PROCEDURE WITH LOGGING & TIMING
 -- DESCRIPTION: Executes all Silver layer transformations sequentially inside 
---              a single ACID transaction with automated rollback error handling.
+--              an ACID transaction, tracking load durations per table and total batch time.
 -- =================================================================================
 
 USE DataWarehouse;
 
--- Drop procedure if it already exists so we can safely recreate it
 DROP PROCEDURE IF EXISTS sp_load_silver_layer;
 
 DELIMITER //
 
 CREATE PROCEDURE sp_load_silver_layer()
-begin
-    -- Declare an exit handler to catch any SQL errors, rollback changes, and throw the error
+BEGIN
+    -- Declare variables for tracking execution time
+    DECLARE v_batch_start TIMESTAMP;
+    DECLARE v_batch_end TIMESTAMP;
+    DECLARE v_table_start TIMESTAMP;
+    DECLARE v_table_end TIMESTAMP;
+
+    -- Declare an exit handler to catch any SQL errors, rollback changes, and report the error
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
+        SELECT '===================================================' AS Status;
+        SELECT 'ERROR OCCURRED DURING LOADING SILVER LAYER - TRANSACTION ROLLED BACK' AS Error_Message;
+        SELECT '===================================================' AS Status;
         RESIGNAL;
     END;
 
-    -- Start the transactional boundary
+    -- Start batch timing and transactional boundary
+    SET v_batch_start = CURRENT_TIMESTAMP(3);
     START TRANSACTION;
+
+    SELECT '===================================================' AS Status;
+    SELECT 'LOADING SILVER LAYER STARTED' AS Status;
+    SELECT '===================================================' AS Status;
 
     -- -----------------------------------------------------
     -- 1. LOAD CRM CUSTOMER INFO
     -- -----------------------------------------------------
+    SET v_table_start = CURRENT_TIMESTAMP(3);
+    SELECT '---------------------------------------------------' AS Status;
+    SELECT 'Truncating & Loading Table: silver_crm_cust_info' AS Status;
+    
     TRUNCATE TABLE silver_crm_cust_info;
     
     INSERT INTO silver_crm_cust_info (
@@ -53,9 +70,16 @@ begin
     ) t 
     WHERE flag_last = 1;
 
+    SET v_table_end = CURRENT_TIMESTAMP(3);
+    SELECT CONCAT('Load Duration (crm_cust_info): ', TIMESTAMPDIFF(MICROSECOND, v_table_start, v_table_end) / 1000000.0, ' seconds') AS Metrics;
+
     -- -----------------------------------------------------
     -- 2. LOAD CRM PRODUCT INFO
     -- -----------------------------------------------------
+    SET v_table_start = CURRENT_TIMESTAMP(3);
+    SELECT '---------------------------------------------------' AS Status;
+    SELECT 'Truncating & Loading Table: silver_crm_prd_info' AS Status;
+    
     TRUNCATE TABLE silver_crm_prd_info;
     
     INSERT INTO silver_crm_prd_info (
@@ -78,9 +102,16 @@ begin
         CAST(DATE_SUB(LEAD(prd_start_dt) OVER (PARTITION BY prd_key ORDER BY prd_start_dt), INTERVAL 1 DAY) AS DATE)
     FROM bronze_crm_prd_info;
 
+    SET v_table_end = CURRENT_TIMESTAMP(3);
+    SELECT CONCAT('Load Duration (crm_prd_info): ', TIMESTAMPDIFF(MICROSECOND, v_table_start, v_table_end) / 1000000.0, ' seconds') AS Metrics;
+
     -- -----------------------------------------------------
     -- 3. LOAD CRM SALES DETAILS
     -- -----------------------------------------------------
+    SET v_table_start = CURRENT_TIMESTAMP(3);
+    SELECT '---------------------------------------------------' AS Status;
+    SELECT 'Truncating & Loading Table: silver_crm_sales_details' AS Status;
+    
     TRUNCATE TABLE silver_crm_sales_details;
     
     INSERT INTO silver_crm_sales_details (
@@ -97,9 +128,16 @@ begin
         CASE WHEN sls_price IS NULL OR sls_price <= 0 THEN CASE WHEN sls_quantity IS NULL OR sls_quantity = 0 THEN 0 ELSE sls_sales / sls_quantity END ELSE sls_price END
     FROM bronze_crm_sales_details;
 
+    SET v_table_end = CURRENT_TIMESTAMP(3);
+    SELECT CONCAT('Load Duration (crm_sales_details): ', TIMESTAMPDIFF(MICROSECOND, v_table_start, v_table_end) / 1000000.0, ' seconds') AS Metrics;
+
     -- -----------------------------------------------------
     -- 4. LOAD ERP CUSTOMER DATA
     -- -----------------------------------------------------
+    SET v_table_start = CURRENT_TIMESTAMP(3);
+    SELECT '---------------------------------------------------' AS Status;
+    SELECT 'Truncating & Loading Table: silver_erp_cust_az12' AS Status;
+    
     TRUNCATE TABLE silver_erp_cust_az12;
     
     INSERT INTO silver_erp_cust_az12 (cid, bdate, gen)
@@ -109,9 +147,16 @@ begin
         CASE WHEN UPPER(TRIM(gen)) IN ('F', 'FEMALE') THEN 'Female' WHEN UPPER(TRIM(gen)) IN ('M', 'MALE') THEN 'Male' ELSE 'n/a' END
     FROM bronze_erp_cust_az12;
 
+    SET v_table_end = CURRENT_TIMESTAMP(3);
+    SELECT CONCAT('Load Duration (erp_cust_az12): ', TIMESTAMPDIFF(MICROSECOND, v_table_start, v_table_end) / 1000000.0, ' seconds') AS Metrics;
+
     -- -----------------------------------------------------
     -- 5. LOAD ERP LOCATION DATA
     -- -----------------------------------------------------
+    SET v_table_start = CURRENT_TIMESTAMP(3);
+    SELECT '---------------------------------------------------' AS Status;
+    SELECT 'Truncating & Loading Table: silver_erp_loc_a101' AS Status;
+    
     TRUNCATE TABLE silver_erp_loc_a101;
     
     INSERT INTO silver_erp_loc_a101 (cid, cntry)
@@ -125,19 +170,35 @@ begin
         END
     FROM bronze_erp_loc_a101;
 
+    SET v_table_end = CURRENT_TIMESTAMP(3);
+    SELECT CONCAT('Load Duration (erp_loc_a101): ', TIMESTAMPDIFF(MICROSECOND, v_table_start, v_table_end) / 1000000.0, ' seconds') AS Metrics;
+
     -- -----------------------------------------------------
     -- 6. LOAD ERP PRODUCT CATEGORIES
     -- -----------------------------------------------------
+    SET v_table_start = CURRENT_TIMESTAMP(3);
+    SELECT '---------------------------------------------------' AS Status;
+    SELECT 'Truncating & Loading Table: silver_erp_px_cat_g1v2' AS Status;
+    
     TRUNCATE TABLE silver_erp_px_cat_g1v2;
     
     INSERT INTO silver_erp_px_cat_g1v2 (id, cat, subcat, maintenance)
     SELECT TRIM(id), TRIM(cat), TRIM(subcat), TRIM(maintenance)
     FROM bronze_erp_px_cat_g1v2;
 
-    -- If everything succeeds, commit all changes permanently
+    SET v_table_end = CURRENT_TIMESTAMP(3);
+    SELECT CONCAT('Load Duration (erp_px_cat_g1v2): ', TIMESTAMPDIFF(MICROSECOND, v_table_start, v_table_end) / 1000000.0, ' seconds') AS Metrics;
+
+    -- Commit transaction permanently
     COMMIT;
+
+    -- Calculate total batch duration
+    SET v_batch_end = CURRENT_TIMESTAMP(3);
     
-    SELECT 'SUCCESS: Entire Silver Layer pipeline executed and committed successfully.' AS Pipeline_Status;
+    SELECT '==================================================' AS Status;
+    SELECT 'LOADING SILVER LAYER IS COMPLETED SUCCESSFULLY' AS Status;
+    SELECT CONCAT('Total Batch Load Duration: ', TIMESTAMPDIFF(MICROSECOND, v_batch_start, v_batch_end) / 1000000.0, ' seconds') AS Metrics;
+    SELECT '==================================================' AS Status;
 
 END //
 
